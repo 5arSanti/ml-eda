@@ -300,3 +300,107 @@ p_pairs <- GGally::ggpairs(
   ggplot2::labs(title = "Pairplot de variables numéricas por categoría")
 p_pairs
 ```
+
+# Correlaciones Pearson y Spearman
+
+Las matrices usan solo las cuatro numéricas (`cor()`, no factores). Los heatmaps son `ggplot2::geom_tile` con la misma escala (−1 a 1). No se ajusta un modelo predictivo: la salida es una recomendación de medida de asociación.
+
+```{r cor-matrices}
+mat_num <- retail_clean |>
+  dplyr::select(dplyr::all_of(num_cols)) |>
+  as.data.frame()
+cor_pearson <- cor(mat_num, method = "pearson", use = "pairwise.complete.obs")
+cor_spearman <- cor(mat_num, method = "spearman", use = "pairwise.complete.obs")
+stopifnot(isTRUE(all.equal(cor_pearson, t(cor_pearson))))
+stopifnot(isTRUE(all.equal(cor_spearman, t(cor_spearman))))
+stopifnot(all(abs(diag(cor_pearson) - 1) < 1e-10))
+stopifnot(all(abs(diag(cor_spearman) - 1) < 1e-10))
+cor_pearson
+cor_spearman
+```
+
+```{r cor-heatmaps}
+cor_to_long <- function(mat, metodo) {
+  as.data.frame(mat) |>
+    tibble::rownames_to_column("var1") |>
+    tidyr::pivot_longer(-var1, names_to = "var2", values_to = "r") |>
+    dplyr::mutate(metodo = metodo)
+}
+
+plot_heatmap <- function(df_long, titulo) {
+  ggplot(df_long, aes(x = var1, y = var2, fill = r)) +
+    geom_tile(color = "white") +
+    geom_text(aes(label = sprintf("%.2f", r)), size = 3) +
+    scale_fill_gradient2(
+      limits = c(-1, 1),
+      midpoint = 0,
+      low = "#d73027",
+      mid = "white",
+      high = "#1a9850"
+    ) +
+    labs(title = titulo, x = NULL, y = NULL, fill = "coef") +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 30, hjust = 1))
+}
+
+p_heat_pearson <- plot_heatmap(
+  cor_to_long(cor_pearson, "pearson"),
+  "Heatmap de correlación de Pearson"
+)
+p_heat_spearman <- plot_heatmap(
+  cor_to_long(cor_spearman, "spearman"),
+  "Heatmap de correlación de Spearman"
+)
+p_heat_pearson
+p_heat_spearman
+```
+
+```{r cor-compare}
+idx <- which(upper.tri(cor_pearson), arr.ind = TRUE)
+cor_compare <- tibble::tibble(
+  par = paste(rownames(cor_pearson)[idx[, 1]],
+              colnames(cor_pearson)[idx[, 2]],
+              sep = " — "),
+  r_pearson = cor_pearson[idx],
+  rho_spearman = cor_spearman[idx],
+  delta = rho_spearman - r_pearson
+) |>
+  dplyr::mutate(
+    nota = dplyr::case_when(
+      abs(delta) < 0.1 ~ "|Δ| < 0.1: Pearson y Spearman coinciden en lo esencial",
+      TRUE ~ "|Δ| ≥ 0.1: la asociación lineal y la monótona difieren"
+    )
+  )
+k_delta <- sum(abs(cor_compare$delta) >= 0.1)
+cor_compare
+cat("Pares con |delta| >= 0.1 (k) =", k_delta, "\n")
+```
+
+```{r recomendacion}
+# Tras ver el pairplot: TRUE si hay curvatura o relación monótona no lineal evidente.
+curvatura_evidente <- FALSE
+
+if (isTRUE(curvatura_evidente)) {
+  recomendacion <- "Spearman"
+  motivo <- "El pairplot muestra curvatura o monotonía no lineal; Spearman describe mejor la asociación."
+} else if (k_delta == 0) {
+  recomendacion <- "Pearson"
+  motivo <- "k = 0 y sin curvatura evidente: un modelo lineal posterior es razonable."
+} else if (k_delta >= 3) {
+  recomendacion <- "Spearman"
+  motivo <- paste0(
+    "k = ", k_delta,
+    " pares con |Δ| ≥ 0.1: Spearman es la medida principal; un lineal puede engañar."
+  )
+} else {
+  recomendacion <- "mixto"
+  motivo <- paste0(
+    "k = ", k_delta,
+    " (1 o 2 pares). No hay un único ganador; revisar esos pares en la tabla."
+  )
+}
+cat("Recomendación:", recomendacion, "\n")
+cat(motivo, "\n")
+```
+
+La recomendación es una **medida de asociación**, no un modelo ajustado. El umbral 0.1 es una guía de lectura, no un test de hipótesis.
