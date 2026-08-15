@@ -97,3 +97,54 @@ if (n_dropped_dups > 0) {
   warning("Se eliminaron ", n_dropped_dups, " fila(s) duplicadas por estructura.")
 }
 ```
+
+# Imputación y exportación
+
+Media global, después de quitar duplicados, solo en `ticket_promedio` y `unidades_vendidas`.
+
+```{r impute-export}
+mean_ticket <- mean(retail_dedup$ticket_promedio, na.rm = TRUE)
+mean_unidades <- mean(retail_dedup$unidades_vendidas, na.rm = TRUE)
+retail_clean <- retail_dedup |>
+  dplyr::mutate(
+    ticket_promedio = tidyr::replace_na(ticket_promedio, mean_ticket),
+    unidades_vendidas = tidyr::replace_na(unidades_vendidas, mean_unidades)
+  )
+
+if (any(is.na(retail_clean$ticket_promedio)) ||
+    any(is.na(retail_clean$unidades_vendidas))) {
+  stop("La imputación por media dejó NA en ticket_promedio o unidades_vendidas.")
+}
+
+if (inherits(retail_clean$mes, "Date")) {
+  retail_clean$mes <- format(retail_clean$mes, "%Y-%m")
+} else {
+  retail_clean$mes <- as.character(retail_clean$mes)
+}
+
+retail_clean <- retail_clean |>
+  dplyr::mutate(
+    ciudad = factor(ciudad),
+    categoria = factor(
+      categoria,
+      levels = c("Ropa", "Hogar", "Tecnología", "Alimentos")
+    )
+  )
+
+cat("Filas post-imputación:", nrow(retail_clean), "\n")
+print(colSums(is.na(retail_clean)))
+
+dir.create("data", showWarnings = FALSE)
+retail_export <- retail_clean |>
+  dplyr::mutate(
+    ciudad = as.character(ciudad),
+    categoria = as.character(categoria)
+  ) |>
+  dplyr::select(dplyr::all_of(required_cols))
+readr::write_csv(retail_export, "data/retail_clean.csv")
+
+stopifnot(file.exists("data/retail_clean.csv"))
+exported <- readr::read_csv("data/retail_clean.csv", show_col_types = FALSE)
+stopifnot(identical(names(exported), required_cols))
+stopifnot(sum(is.na(dplyr::select(exported, dplyr::all_of(num_cols)))) == 0)
+```
