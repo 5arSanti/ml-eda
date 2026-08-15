@@ -34,6 +34,8 @@ num_cols <- c(
 
 Preprocesamiento (duplicados estructurales e imputación por media), análisis descriptivo y comparación de correlaciones de Pearson y Spearman sobre ventas mensuales agregadas (Falabella / Éxito). No hay identificador de cliente. No se ajusta un modelo predictivo.
 
+El archivo `data/retail.csv` incluido en este repositorio es una **muestra sintética reproducible** (`set.seed(42)`), no ventas reales de Falabella o Éxito; puede sustituirse por el insumo auténtico con las mismas 7 columnas del diccionario.
+
 # Carga y tipos de columna
 
 Los tipos se reportan **antes** de eliminar duplicados estructurales.
@@ -44,11 +46,11 @@ if (!file.exists(csv_path)) {
   stop("No existe data/retail.csv. Coloca el insumo en esa ruta.")
 }
 retail_raw <- readr::read_csv(csv_path, show_col_types = FALSE)
-missing <- setdiff(required_cols, names(retail_raw))
-if (length(missing) > 0) {
+missing_cols <- setdiff(required_cols, names(retail_raw))
+if (length(missing_cols) > 0) {
   stop(
     "Faltan columnas del diccionario: ",
-    paste(missing, collapse = ", ")
+    paste(missing_cols, collapse = ", ")
   )
 }
 retail_raw <- dplyr::select(retail_raw, dplyr::all_of(required_cols))
@@ -96,6 +98,10 @@ cat("Filas duplicadas eliminadas:", n_dropped_dups, "\n")
 if (n_dropped_dups > 0) {
   warning("Se eliminaron ", n_dropped_dups, " fila(s) duplicadas por estructura.")
 }
+na_dedup <- colSums(is.na(retail_dedup))
+na_dedup
+n_remaining_dups <- sum(duplicated(retail_dedup))
+cat("Duplicados estructurales restantes:", n_remaining_dups, "\n")
 ```
 
 # Imputación y exportación
@@ -220,15 +226,15 @@ p_hist
 ```
 
 ```{r boxplot-global}
-p_box_global <- ggplot(long_num, aes(x = variable, y = valor)) +
+p_box_global <- ggplot(long_num, aes(x = "", y = valor)) +
   geom_boxplot(fill = "#9ecae1") +
+  facet_wrap(~variable, scales = "free") +
   labs(
     title = "Boxplots globales",
     x = NULL,
     y = "Valor"
   ) +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 20, hjust = 1))
+  theme_minimal()
 p_box_global
 ```
 
@@ -372,9 +378,14 @@ cor_compare <- tibble::tibble(
     )
   )
 k_delta <- sum(abs(cor_compare$delta) >= 0.1)
+off_diag_idx <- which(upper.tri(cor_pearson), arr.ind = TRUE)
+max_abs_r_pearson <- max(abs(cor_pearson[off_diag_idx]))
 cor_compare
 cat("Pares con |delta| >= 0.1 (k) =", k_delta, "\n")
+cat("max(abs(r_pearson)) fuera de diagonal =", round(max_abs_r_pearson, 3), "\n")
 ```
+
+Tras inspeccionar el pairplot, `curvatura_evidente` permanece `FALSE` salvo que haya curvatura evidente en las relaciones entre numéricas.
 
 ```{r recomendacion}
 # Tras ver el pairplot: TRUE si hay curvatura o relación monótona no lineal evidente.
@@ -386,6 +397,13 @@ if (isTRUE(curvatura_evidente)) {
 } else if (k_delta == 0) {
   recomendacion <- "Pearson"
   motivo <- "k = 0 y sin curvatura evidente: un modelo lineal posterior es razonable."
+  if (max_abs_r_pearson < 0.3) {
+    motivo <- paste0(
+      motivo,
+      " Las asociaciones son débiles (max |r| < 0.3); Pearson es la recomendación por el criterio Δ, ",
+      "pero un modelo lineal tendría poco que explicar."
+    )
+  }
 } else if (k_delta >= 3) {
   recomendacion <- "Spearman"
   motivo <- paste0(
