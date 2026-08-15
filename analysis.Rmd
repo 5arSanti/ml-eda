@@ -185,3 +185,99 @@ freq_ciudad
 freq_categoria
 freq_mes
 ```
+
+# Gráficos univariados
+
+Paleta fija por categoría. Histogramas en un `facet_wrap`. Boxplots globales, por categoría y por ciudad (top 8 si hay más de 8 ciudades).
+
+```{r plot-prep}
+pal_categoria <- c(
+  "Ropa" = "#4C78A8",
+  "Hogar" = "#F58518",
+  "Tecnología" = "#54A24B",
+  "Alimentos" = "#E45756"
+)
+long_num <- retail_clean |>
+  dplyr::select(ciudad, categoria, dplyr::all_of(num_cols)) |>
+  tidyr::pivot_longer(
+    dplyr::all_of(num_cols),
+    names_to = "variable",
+    values_to = "valor"
+  )
+```
+
+```{r histograma}
+p_hist <- ggplot(long_num, aes(x = valor)) +
+  geom_histogram(bins = 20, fill = "#4C78A8", color = "white") +
+  facet_wrap(~variable, scales = "free") +
+  labs(
+    title = "Histogramas de variables numéricas",
+    x = "Valor",
+    y = "Frecuencia"
+  ) +
+  theme_minimal()
+p_hist
+```
+
+```{r boxplot-global}
+p_box_global <- ggplot(long_num, aes(x = variable, y = valor)) +
+  geom_boxplot(fill = "#9ecae1") +
+  labs(
+    title = "Boxplots globales",
+    x = NULL,
+    y = "Valor"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 20, hjust = 1))
+p_box_global
+```
+
+```{r boxplot-categoria}
+p_box_cat <- ggplot(long_num, aes(x = categoria, y = valor, fill = categoria)) +
+  geom_boxplot() +
+  facet_wrap(~variable, scales = "free") +
+  scale_fill_manual(values = pal_categoria) +
+  labs(
+    title = "Boxplots por categoría",
+    x = "Categoría",
+    y = "Valor",
+    fill = "Categoría"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 20, hjust = 1))
+p_box_cat
+```
+
+```{r boxplot-ciudad}
+n_ciudades <- dplyr::n_distinct(retail_clean$ciudad)
+if (n_ciudades <= 8) {
+  ciudades_boxplot <- as.character(unique(retail_clean$ciudad))
+  nota_ciudad <- "Se muestran todas las ciudades."
+} else {
+  ciudades_boxplot <- retail_clean |>
+    dplyr::group_by(ciudad) |>
+    dplyr::summarise(ventas = sum(ventas_totales_millones), .groups = "drop") |>
+    dplyr::slice_max(ventas, n = 8) |>
+    dplyr::pull(ciudad) |>
+    as.character()
+  nota_ciudad <- paste(
+    "Más de 8 ciudades: se muestran las 8 con mayor suma de ventas_totales_millones:",
+    paste(ciudades_boxplot, collapse = ", ")
+  )
+}
+cat(nota_ciudad, "\n")
+p_box_ciudad <- long_num |>
+  dplyr::filter(as.character(ciudad) %in% ciudades_boxplot) |>
+  ggplot(aes(x = ciudad, y = valor)) +
+  geom_boxplot(fill = "#a1d99b") +
+  facet_wrap(~variable, scales = "free") +
+  labs(
+    title = "Boxplots por ciudad",
+    subtitle = nota_ciudad,
+    x = "Ciudad",
+    y = "Valor"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1))
+p_box_ciudad
+```
