@@ -1,0 +1,35 @@
+---
+title: "Análisis exploratorio: retail Falabella / Éxito"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    df_print: paged
+lang: es
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = TRUE)
+library(tidyverse)
+library(GGally)
+
+required_cols <- c(
+  "mes",
+  "ciudad",
+  "categoria",
+  "ventas_totales_millones",
+  "ticket_promedio",
+  "unidades_vendidas",
+  "num_transacciones"
+)
+num_cols <- c(
+  "ventas_totales_millones",
+  "ticket_promedio",
+  "unidades_vendidas",
+  "num_transacciones"
+)
+```
+
+# Objetivo
+
+Preprocesamiento (duplicados estructurales e imputación por media), análisis descriptivo y comparación de correlaciones de Pearson y Spearman sobre ventas mensuales agregadas (Falabella / Éxito). No hay identificador de cliente. No se ajusta un modelo predictivo.
