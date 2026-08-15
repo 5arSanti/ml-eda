@@ -281,3 +281,22 @@ p_box_ciudad <- long_num |>
   theme(axis.text.x = element_text(angle = 30, hjust = 1))
 p_box_ciudad
 ```
+
+# Pairplot
+
+`GGally::ggpairs` de las cuatro numéricas, color por `categoria` (no se omite).
+
+```{r pairplot, fig.width=9, fig.height=8}
+p_pairs <- GGally::ggpairs(
+  retail_clean,
+  columns = num_cols,
+  mapping = ggplot2::aes(color = categoria),
+  upper = list(continuous = GGally::wrap("cor", size = 3)),
+  lower = list(continuous = GGally::wrap("points", alpha = 0.4, size = 0.7)),
+  diag = list(continuous = GGally::wrap("densityDiag", alpha = 0.6))
+) +
+  ggplot2::scale_color_manual(values = pal_categoria) +
+  ggplot2::scale_fill_manual(values = pal_categoria) +
+  ggplot2::labs(title = "Pairplot de variables numéricas por categoría")
+p_pairs
+```
