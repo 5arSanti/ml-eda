@@ -77,3 +77,23 @@ if (n_ticket_na != 4 || n_unidades_na != 2) {
   )
 }
 ```
+
+# Duplicados estructurales
+
+Solo se eliminan filas idénticas en **todas** las columnas. No se de-duplica por `mes` ni por ninguna otra llave.
+
+```{r structural-dups}
+n_raw <- nrow(retail_raw)
+retail_dedup <- dplyr::distinct(retail_raw, .keep_all = TRUE)
+n_dedup <- nrow(retail_dedup)
+n_dropped_dups <- n_raw - n_dedup
+if (n_dedup == 0) {
+  stop("distinct() dejó 0 filas.")
+}
+cat("Filas originales:", n_raw, "\n")
+cat("Filas tras distinct():", n_dedup, "\n")
+cat("Filas duplicadas eliminadas:", n_dropped_dups, "\n")
+if (n_dropped_dups > 0) {
+  warning("Se eliminaron ", n_dropped_dups, " fila(s) duplicadas por estructura.")
+}
+```
