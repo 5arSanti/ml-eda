@@ -148,3 +148,40 @@ exported <- readr::read_csv("data/retail_clean.csv", show_col_types = FALSE)
 stopifnot(identical(names(exported), required_cols))
 stopifnot(sum(is.na(dplyr::select(exported, dplyr::all_of(num_cols)))) == 0)
 ```
+
+# Análisis descriptivo
+
+Resúmenes sobre `retail_clean`. Los atípicos no se recortan.
+
+```{r descriptive-numeric}
+desc_num <- retail_clean |>
+  dplyr::select(dplyr::all_of(num_cols)) |>
+  tidyr::pivot_longer(dplyr::everything(), names_to = "variable", values_to = "valor") |>
+  dplyr::group_by(variable) |>
+  dplyr::summarise(
+    n = dplyr::n(),
+    media = mean(valor),
+    mediana = median(valor),
+    sd = sd(valor),
+    min = min(valor),
+    max = max(valor),
+    iqr = IQR(valor),
+    .groups = "drop"
+  )
+desc_num
+```
+
+```{r descriptive-cats}
+freq_ciudad <- retail_clean |>
+  dplyr::count(ciudad, name = "n") |>
+  dplyr::arrange(dplyr::desc(n))
+freq_categoria <- retail_clean |>
+  dplyr::count(categoria, name = "n") |>
+  dplyr::arrange(dplyr::desc(n))
+freq_mes <- retail_clean |>
+  dplyr::count(mes, name = "n") |>
+  dplyr::arrange(mes)
+freq_ciudad
+freq_categoria
+freq_mes
+```
