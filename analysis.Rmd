@@ -33,3 +33,47 @@ num_cols <- c(
 # Objetivo
 
 Preprocesamiento (duplicados estructurales e imputación por media), análisis descriptivo y comparación de correlaciones de Pearson y Spearman sobre ventas mensuales agregadas (Falabella / Éxito). No hay identificador de cliente. No se ajusta un modelo predictivo.
+
+# Carga y tipos de columna
+
+Los tipos se reportan **antes** de eliminar duplicados estructurales.
+
+```{r load-raw}
+csv_path <- "data/retail.csv"
+if (!file.exists(csv_path)) {
+  stop("No existe data/retail.csv. Coloca el insumo en esa ruta.")
+}
+retail_raw <- readr::read_csv(csv_path, show_col_types = FALSE)
+missing <- setdiff(required_cols, names(retail_raw))
+if (length(missing) > 0) {
+  stop(
+    "Faltan columnas del diccionario: ",
+    paste(missing, collapse = ", ")
+  )
+}
+retail_raw <- dplyr::select(retail_raw, dplyr::all_of(required_cols))
+```
+
+```{r types-before-distinct}
+dplyr::glimpse(retail_raw)
+class_tbl <- tibble::tibble(
+  columna = names(retail_raw),
+  clase = vapply(retail_raw, function(x) paste(class(x), collapse = ", "), character(1))
+)
+class_tbl
+```
+
+```{r na-before-clean}
+na_before <- colSums(is.na(retail_raw))
+na_before
+n_ticket_na <- unname(na_before[["ticket_promedio"]])
+n_unidades_na <- unname(na_before[["unidades_vendidas"]])
+if (n_ticket_na != 4 || n_unidades_na != 2) {
+  warning(
+    "Se esperaban 4 NA en ticket_promedio y 2 en unidades_vendidas; ",
+    "encontrados: ticket_promedio=", n_ticket_na,
+    ", unidades_vendidas=", n_unidades_na,
+    ". Se continúa."
+  )
+}
+```
